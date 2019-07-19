@@ -46,7 +46,7 @@ def main():
         # 1110 &
         # 1111
 
-        seed = [0, 1, 4, 5, 10, 11, 14, 15][y // (192 // 8)]
+        #seed = [0, 1, 4, 5, 10, 11, 14, 15][y // (192 // 8)]
         # seed = 4
 
         transitions = {
@@ -77,7 +77,7 @@ def main():
             # 11100001111000011110
             # 12: {},
             # 13: {},
-            14: {0, 3},  # XXX 0 3
+            14: {2, 3},  # XXX 0 3
             # 11110000
             15: {0, 3},
         }
@@ -107,7 +107,7 @@ def main():
         # print(pixel(clock))
 
         print()
-        run_size = 2
+        run_size = random.randint(1, 2)
 
         # flip_positions = set(random.randint(0, 139) * 4 + random.randint(2,3)
         #                      for _ in range(4))
