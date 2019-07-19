@@ -46,7 +46,7 @@ def main():
         # 1110 &
         # 1111
 
-        #seed = [0, 1, 4, 5, 10, 11, 14, 15][y // (192 // 8)]
+        # seed = [0, 1, 4, 5, 10, 11, 14, 15][y // (192 // 8)]
         # seed = 4
 
         transitions = {
@@ -150,7 +150,8 @@ def main():
             #         (clock == [1, 0, 1, 0] or clock == [1, 1, 1, 1])
             # ):
 
-            if x not in flip_positions:
+            #            if x not in flip_positions:
+            if phase not in tr:
                 # if random.randint(0, 5) == 0 and (
                 #     clock == [1,1,1,0] or
                 #     clock == [0,0,0,0] or clock == [1,1,1,1] or clock == [0,0,0,1]
@@ -162,24 +163,28 @@ def main():
                     run_count = 0
                 clock[phase] = next_bit
             else:
-                # if x != (y % (192 // 32) + 32):  #random.randint(0,20) != 0:
-                #     next_bit = 1 - next_bit
-                #
-                do_print = True
-                print("Old Weight = %d" % sum(clock), next_bit)
-                print(pixel(clock))
+                next_clock = clock
+                next_clock[phase] = 1 - next_bit
+                next_seed = (next_clock[3]) + (next_clock[2] << 1) + (
+                        next_clock[1] << 2) + (next_clock[0] << 3)
+                if next_seed in transitions and random.randint(0, 5) == 0:
+                    next_bit = 1 - next_bit
+                    run_size = 3 - run_size
+                    run_count = 0
 
-                next_bit = 1 - next_bit
-                run_size = 3 - run_size
-                run_count = 0
+                    print(pixel(clock))
+                    clock[phase] = next_bit
+                    seed = (clock[3]) + (clock[2] << 1) + (clock[1] << 2) + \
+                           (clock[0] << 3)
+                    print(pixel(clock))
 
-                print(pixel(clock))
-                clock[phase] = next_bit
-                # seed = (clock[3]) + (clock[2] << 1) + (clock[1] << 2) + \
-                #        (clock[0] << 3)
-                # print(pixel(clock))
-                #
-                # tr = list(transitions[seed])
+                    tr = list(transitions[seed])
+                else:
+                    run_count += 1
+                    if run_count == run_size:
+                        next_bit = 1 - next_bit
+                        run_count = 0
+                    clock[phase] = next_bit
 
             # else:
             #     next_bit = 1 - next_bit
