@@ -4,8 +4,6 @@ import random
 
 import numpy as np
 
-import colours
-
 XMAX = 560
 YMAX = 192
 
@@ -17,7 +15,7 @@ def pixel(clock):
 def main():
     dhgr = np.zeros((YMAX, XMAX), dtype=np.bool)
 
-    clock = [False, False, False, False]  # np.zeros(shape=4, dtype=np.bool)
+    clock = [False, False, False, False]
 
     def _seed(val, offset):
         dhgr[y, offset] = val & 0b1
@@ -26,28 +24,8 @@ def main():
     for y in range(YMAX):
         phase = 0
 
-        seed = [10, 2, 6, 4][y % 4]  # y//(192//16) # random.randint(0, 16)
-        # seed = 0b1101
-        # seed = 0b1101 # random.randint(0, 16)
-
-        # seed = y % 16
-
-        seed = y // (192 // 16)
-
         # TODO: why do 2,3,6,7,8,9,12,13 give colours?
         seed = random.choice((0, 1, 4, 5, 10, 11, 14, 15))
-
-        # 0000 & clock = 1 or 3
-        # 0001 & clock = 1 or 3
-        # 0100 & clock = 1 or 3
-        # 0101 & clock = 1 or 3
-        # 1010 & clock = 2 or 4
-        # 1011 & clock = 2 or 4
-        # 1110 &
-        # 1111
-
-        # seed = [0, 1, 4, 5, 10, 11, 14, 15][y // (192 // 8)]
-        # seed = 4
 
         transitions = {
             # 0123012301230123
@@ -55,42 +33,26 @@ def main():
             0: {0, 3},
             # 0123012301230123
             # 0001111000011110
-            1: {2, 3},  # XXX 2 3
-            # 0010
-            # 2: {},
+            1: {2, 3},
             3: {2, 3},
             # 010010110100
-            4: {2, 3},  # XXX 2 3
+            4: {2, 3},
             # 010110100
             5: {0, 3},
-            # 6: {},
-            # 7: {},
-            # 8: {},
-            # 9: {},
             # 012301230123
             # 1010010110100
             10: {3, 0},
             # 012301230123
             # 101101001011
-            11: {2, 3},  # XXX 2 3
+            11: {2, 3},
             # 1230123
             # 11100001111000011110
-            # 12: {},
-            # 13: {},
-            14: {2, 3},  # XXX 0 3
+            14: {2, 3},
             # 11110000
             15: {0, 3},
         }
 
         tr = list(transitions[seed])
-
-        # seed = 0  # 0000111100001111 phase 0,3 - first and last in run of 0
-        # or 1 bits
-        # seed = 1  # 00011110000111100001  phase 2,3
-        # seed = 4  # 010010110100  phase 2,3
-        # seed = 5  # 010110100 phase 0,3
-        # seed = 15
-        # seed = 2
 
         _seed(seed, 3)
         seed >>= 1
@@ -104,20 +66,9 @@ def main():
         _seed(seed, 0)
         seed >>= 1
 
-        # print(pixel(clock))
-
-        print()
+        # Initial choice
         run_size = random.randint(1, 2)
 
-        # flip_positions = set(random.randint(0, 139) * 4 + random.randint(2,3)
-        #                      for _ in range(4))
-
-        flip_positions = set(y * 4 + tr[0] for y in range(140))
-        flip_positions.update(set(y * 4 + tr[1] for y in range(140)))
-        flip_positions = {random.choice(list(flip_positions)) for _ in range(1)}
-        # XXX ok to flip on phase 2,3 for this seed - why?
-
-        # flip_positions = {random.choice([10, 11, 14, 15, 18, 19])}
         run_count = 0
         do_print = False
 
@@ -125,58 +76,29 @@ def main():
             # Find would-be next bit if we repeat the same colour
             next_bit = clock[phase]
 
-            # run_size += 1
-            # flip = random.randint(0, 1)
-            # if run_size == (y % 2) + 1:
-            #     # Have to terminate run or we'd accumulate colour
-            #     next_bit = ~next_bit
-            #     # if run_size == 1:
-            #     #     print("Max run size")
-            #     # elif flip:
-            #     #     print("Terminating early")
-            #     run_size = 0
-            # else:
-            #     print("Carrying on")
-
-            # run_length = (y % (192 // 8)) + 1
-            #
-            # if x % run_length != 0:
-            #     next_bit = ~next_bit
-
-            # Can slip a bit if clock is 0000, 0101, 1010, 1111
-            # if (
-            #         (clock == [0, 1, 0, 1] or clock == [0, 1, 0, 1])
-            # ) or (
-            #         (clock == [1, 0, 1, 0] or clock == [1, 1, 1, 1])
-            # ):
-
-            #            if x not in flip_positions:
             if phase not in tr:
-                # if random.randint(0, 5) == 0 and (
-                #     clock == [1,1,1,0] or
-                #     clock == [0,0,0,0] or clock == [1,1,1,1] or clock == [0,0,0,1]
-                # ):
-                # if not next_bit and random.randint(0, 5) == 0:
                 run_count += 1
                 if run_count == run_size:
                     next_bit = 1 - next_bit
                     run_count = 0
                 clock[phase] = next_bit
             else:
+                # Possible transition point
+                #
+                # See if the transition target is valid
                 next_clock = clock
                 next_clock[phase] = 1 - next_bit
                 next_seed = (next_clock[3]) + (next_clock[2] << 1) + (
                         next_clock[1] << 2) + (next_clock[0] << 3)
-                if next_seed in transitions and random.randint(0, 5) == 0:
+                if next_seed in transitions and random.randint(0, 3) == 0:
                     next_bit = 1 - next_bit
+                    # TODO: why is it necessary to flip run_size?
                     run_size = 3 - run_size
                     run_count = 0
 
-                    print(pixel(clock))
                     clock[phase] = next_bit
                     seed = (clock[3]) + (clock[2] << 1) + (clock[1] << 2) + \
                            (clock[0] << 3)
-                    print(pixel(clock))
 
                     tr = list(transitions[seed])
                 else:
@@ -186,20 +108,6 @@ def main():
                         run_count = 0
                     clock[phase] = next_bit
 
-            # else:
-            #     next_bit = 1 - next_bit
-            #     print("slipping")
-            # print("not")
-
-            # if x != y:
-            #     next_bit = ~next_bit
-
-            # if x % 2 == 0:
-            #     next_bit = clock[phase]
-            # else:
-            #     next_bit = ~clock[phase]
-
-            # print("01"[next_bit])
             dhgr[y, x] = next_bit
 
             if do_print:
@@ -213,11 +121,7 @@ def main():
 
         print(dhgr[y, 0:20])
 
-    #            print(pixel(clock))
-
-    # print(dhgr[0,0:12])
     memory = pack(dhgr)
-    # print(memory[0,0])
     dump(memory)
 
 
@@ -281,13 +185,6 @@ def pack(dhgr):
 
     return memory
 
-
-# 01230123012301230123
-# 1011
-#  0110 = 0011
-#   1101 = 0111
-#    1010 = 0101
-#     0100 = 0100
 
 if __name__ == "__main__":
     main()
