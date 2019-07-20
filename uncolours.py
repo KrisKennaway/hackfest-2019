@@ -1,7 +1,10 @@
 """Demo for packing DHGR pixels in such a way that colours cancel."""
 
+import glob
+import os.path
 import random
 
+from PIL import Image
 import numpy as np
 
 XMAX = 560
@@ -12,7 +15,44 @@ def pixel(clock):
     return "".join("01"[c] for c in clock)
 
 
+def get_bw_transitions(filename):
+    im = Image.open(filename).resize((XMAX, YMAX)).convert("1")
+
+    flip_transitions = [[] for _ in range(YMAX)]
+
+    for y in range(YMAX):
+        old_pixel = im.getpixel((0, y))
+        for x in range(XMAX):
+            current_pixel = im.getpixel((x, y))
+            if old_pixel != current_pixel:
+                flip_transitions[y].append((x, current_pixel != 0))
+                # print("Line %d transition at %d (%d -> %d)" % (
+                #    y, x, old_pixel, current_pixel))
+            old_pixel = current_pixel
+
+    return flip_transitions
+
+
+OUTPUT_DIR = "hackfest/hackfest/files"
+
+
 def main():
+    for filename in glob.glob("images/*.png"):
+        flip_transitions = get_bw_transitions(filename)
+
+        dhgr = render(flip_transitions)
+
+        memory = pack(dhgr)
+
+        base_filename = ".".join(
+            os.path.basename(filename).split(".")[:-1] + ["bin"])
+        output_filename = os.path.join(
+            OUTPUT_DIR, base_filename)
+
+        dump(memory, output_filename)
+
+
+def render(flip_transitions, seeds = None):
     dhgr = np.zeros((YMAX, XMAX), dtype=np.bool)
 
     clock = [False, False, False, False]
@@ -21,11 +61,18 @@ def main():
         dhgr[y, offset] = val & 0b1
         clock[offset] = val & 0b1
 
+    # flip points
+    # ycenter = YMAX // 2
+    # xcenter = XMAX // 2
+
     for y in range(YMAX):
         phase = 0
 
-        # TODO: why do 2,3,6,7,8,9,12,13 give colours?
-        seed = random.choice((0, 1, 4, 5, 10, 11, 14, 15))
+        # TODO: why do 2,3,6,7,8,9,12,13 give colours - too low intensity?
+        seed = random.choice(seeds or (0, 1, 4, 5, 10, 11, 14, 15))
+
+        # TODO: compute sequence of intensities for all 8 seeds and 2 run
+        #  lengths
 
         transitions = {
             # 0123012301230123
@@ -34,7 +81,6 @@ def main():
             # 0123012301230123
             # 0001111000011110
             1: {2, 3},
-            3: {2, 3},
             # 010010110100
             4: {2, 3},
             # 010110100
@@ -67,12 +113,29 @@ def main():
         seed >>= 1
 
         # Initial choice
-        run_size = random.randint(1, 2)
+        run_size = 1  # random.randint(1, 2)
 
         run_count = 0
         do_print = False
 
+        # radius = 192 // 2
+        # y0 = y - ycenter
+        # x0 = (560. / 192) * math.sqrt(radius * radius - y0 * y0)
+        # flip_points = [xcenter - x0, xcenter + x0, 999]
+        num_transisitions = 0
+
+        flip_data = flip_transitions[y]
+        flip_data.append((999, 1))
+
+        should_flip = False
         for x in range(4, XMAX):
+            flip_point, new_value = flip_data[num_transisitions]
+            if x >= flip_point:
+                flip_target_value = new_value
+                should_flip = True
+                num_transisitions += 1
+                print("Line %d should flip at %d" % (y, x))
+
             # Find would-be next bit if we repeat the same colour
             next_bit = clock[phase]
 
@@ -90,10 +153,23 @@ def main():
                 next_clock[phase] = 1 - next_bit
                 next_seed = (next_clock[3]) + (next_clock[2] << 1) + (
                         next_clock[1] << 2) + (next_clock[0] << 3)
-                if next_seed in transitions and random.randint(0, 3) == 0:
+
+                can_flip = next_seed in transitions
+                if should_flip and can_flip:
+                    print("run size %d, new_value %d" % (run_size,
+                                                         flip_target_value))
+
+                if (
+                        should_flip and can_flip and
+                        (run_size == 3 - (flip_target_value + 1))
+                ):
+                    print("Line %d transitioning at %d" % (y, x))
+                    should_flip = False
+
                     next_bit = 1 - next_bit
                     # TODO: why is it necessary to flip run_size?
-                    run_size = 3 - run_size
+                    # run_size = 3 - run_size
+                    run_size = flip_target_value + 1
                     run_count = 0
 
                     clock[phase] = next_bit
@@ -121,8 +197,7 @@ def main():
 
         print(dhgr[y, 0:20])
 
-    memory = pack(dhgr)
-    dump(memory)
+    return dhgr
 
 
 # See "Apple Graphics & Game Design", p95
@@ -149,7 +224,22 @@ for y in range(YMAX):
         X_Y_TO_PAGE[y, x] = page
 
 
-def dump(memory):
+def pack(dhgr):
+    """Pack bitmap into 7-bit screen map"""
+
+    memory = np.zeros((YMAX, XMAX // 7), dtype=np.uint8)
+
+    for x in range(0, XMAX - 7, 7):
+        memory[:, x // 7] = (
+                dhgr[:, x] + (dhgr[:, x + 1] << 1) + (
+                dhgr[:, x + 2] << 2) + (
+                        dhgr[:, x + 3] << 3) + (dhgr[:, x + 4] << 4) + (
+                        dhgr[:, x + 5] << 5) + (dhgr[:, x + 6] << 6))
+
+    return memory
+
+
+def dump(memory, output_filename):
     even = memory[:, ::2]
     odd = memory[:, 1::2]
 
@@ -166,24 +256,9 @@ def dump(memory):
             aux[addr] = even[y, x]
             main[addr] = odd[y, x]
 
-    with open("out", "wb") as out:
+    with open(output_filename, "wb") as out:
         out.write(main.tobytes())
         out.write(aux.tobytes())
-
-
-def pack(dhgr):
-    """Pack bitmap into 7-bit screen map"""
-
-    memory = np.zeros((YMAX, XMAX // 7), dtype=np.uint8)
-
-    for x in range(0, XMAX - 7, 7):
-        memory[:, x // 7] = (
-                dhgr[:, x] + (dhgr[:, x + 1] << 1) + (
-                dhgr[:, x + 2] << 2) + (
-                        dhgr[:, x + 3] << 3) + (dhgr[:, x + 4] << 4) + (
-                        dhgr[:, x + 5] << 5) + (dhgr[:, x + 6] << 6))
-
-    return memory
 
 
 if __name__ == "__main__":
