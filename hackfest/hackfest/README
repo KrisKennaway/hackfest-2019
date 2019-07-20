@@ -1,0 +1,4 @@
+After building hackfest.dsk, add the startup.bas to it with the following command:
+
+$ cd startup/startup && make && cd ../..
+$ java -jar make/AppleCommander.jar -p hackfest.dsk startup bas 0x801 < startup/startup/startup.tok
