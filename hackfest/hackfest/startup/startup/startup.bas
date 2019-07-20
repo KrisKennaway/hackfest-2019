@@ -1,20 +1,22 @@
-10 REM  hello.bas
-20 REM hello
+10 REM  startup.bas
+20 REM startup
 30 REM Created by Kris Kennaway on 19/07/2019.
 40 REM  Copyright © 2019 Kris Kennaway. All rights reserved.
 
 10 un$ = "UnCoLoUrS": ul=len(un$)
 20 kk$ = "kRiS kEnNaWaY": kl=len(kk$)
 
-30 dim un%(ul): dim kk%(kl): ? foo
+30 dim un%(ul): dim kk%(kl)
 40 for i =1 to ul: uu%(i) = asc(mid$(un$, i, 1)): next
 
 40 for i =1 to kl: kk%(i) = asc(mid$(kk$, i, 1)): next
 
 100 print chr$(4); "pr#3"
+105 REM display header
 110 vtab 1: x$=un$: xl=ul: gosub 10000
 150 vtab 2: x$=kk$: xl=kl: gosub 10000
 
+199 REM print intro text, while ticking speaker (1-bit S0UNDZZZZZZ) and toggling case in header
 200 read a$
 210 if a$ = "" then 500
 220 for i = 1 to 1000: next: rem delay
@@ -45,7 +47,9 @@
 330 goto 200
 
 500 get k$
+504 REM routine to init DHGR and move $4000-$5FFF into $2000-$3FFF
 505 print chr$(4); "bload hackfest"
+509 REM cycle image loading
 510 print chr$(4); "bload uncolours"
 520 call 24576
 530 for i=1 to 5000: next
